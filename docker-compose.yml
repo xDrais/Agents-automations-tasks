@@ -6,18 +6,44 @@ services:
     ports:
       - "5679:5678"
     environment:
-      - N8N_HOST=3f434c45ee0a.ngrok-free.app
+      - N8N_HOST=0de86c24908a.ngrok-free.app
       - N8N_PORT=5678
       - N8N_PROTOCOL=https
-      - WEBHOOK_URL=https://3f434c45ee0a.ngrok-free.app
-      - N8N_EDITOR_BASE_URL=https://3f434c45ee0a.ngrok-free.app
+      - WEBHOOK_URL=https://0de86c24908a.ngrok-free.app
+      - N8N_EDITOR_BASE_URL=https://0de86c24908a.ngrok-free.app
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=sth
       - N8N_BASIC_AUTH_PASSWORD=pwd
       - N8N_RUNNERS_ENABLED=true
       - N8N_RUNNERS_MODE=internal
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      # ollama base url for the internal network
+      - OLLAMA_BASE_URL=http://ollama:11434
     volumes:
       - C:/n8n/n8n-data:/home/node/.n8n
+    depends_on:
+      - ollama
     restart: unless-stopped
     stop_grace_period: 60s
+
+  ollama:
+      image: ollama/ollama:latest
+      container_name: ollama
+      ports:
+        - "11434:11434"
+      #environment:
+        # Optional GPU hints (safe defaults). Can remove if unsure.
+        # - OLLAMA_FLASH_ATTENTION=false
+        # - OLLAMA_NUM_GPU_LAYERS=999   # try to offload as many layers as possible if there is a GPU
+        # - OLLAMA_KV_CACHE_TYPE=auto
+        # - OLLAMA_KEEP_ALIVE=5m
+      volumes:
+        - ./ollama:/root/.ollama
+      restart: unless-stopped
+
+# Optional: enable GPU pass-through (Docker Engine with NVIDIA)
+#  deploy:
+#    resources:
+#      reservations:
+#        devices:
+#          - capabilities: ["gpu"]
