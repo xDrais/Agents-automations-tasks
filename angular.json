@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "Agents": {
+    "test": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -61,10 +61,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "Agents:build:production"
+              "buildTarget": "test:build:production"
             },
             "development": {
-              "buildTarget": "Agents:build:development"
+              "buildTarget": "test:build:development"
             }
           },
           "defaultConfiguration": "development"
