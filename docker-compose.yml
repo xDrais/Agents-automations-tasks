@@ -1,16 +1,18 @@
 version: "3"
 services:
   n8n:
-    image: n8nio/n8n:1.94.1
+    image: n8nio/n8n:latest
     container_name: n8n
     ports:
       - "5679:5678"
     environment:
-      - N8N_HOST=0de86c24908a.ngrok-free.app
+      - N8N_HOST=localhostw
       - N8N_PORT=5678
-      - N8N_PROTOCOL=https
-      - WEBHOOK_URL=https://0de86c24908a.ngrok-free.app
-      - N8N_EDITOR_BASE_URL=https://0de86c24908a.ngrok-free.app
+      - N8N_PROTOCOL=http
+      #- WEBHOOK_URL=https://0de86c24908a.ngrok-free.app
+      #- N8N_EDITOR_BASE_URL=https://0de86c24908a.ngrok-free.app
+      - WEBHOOK_URL=http://localhost:5679
+      - N8N_EDITOR_BASE_URL=http://localhost:5679/
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=sth
       - N8N_BASIC_AUTH_PASSWORD=pwd
@@ -21,6 +23,8 @@ services:
       - OLLAMA_BASE_URL=http://ollama:11434
     volumes:
       - C:/n8n/n8n-data:/home/node/.n8n
+      # <— put your .txt/.md/.pdf here
+      - C:/n8n/kb:/data/kb
     depends_on:
       - ollama
     restart: unless-stopped
@@ -39,7 +43,30 @@ services:
         # - OLLAMA_KEEP_ALIVE=5m
       volumes:
         - ./ollama:/root/.ollama
+      environment:
+        - OLLAMA_KEEP_ALIVE=24h
       restart: unless-stopped
+
+
+# Rag vector 
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports: ["6333:6333", "6334:6334"]
+    volumes:
+      - qdrant:/qdrant/storage
+        
+# Optional: a ready-made UI with built-in RAG over Ollama
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: openwebui
+    ports: ["3000:8080"]
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      - openwebui:/app/backend/data
+    depends_on: [ollama]
 
 # Optional: enable GPU pass-through (Docker Engine with NVIDIA)
 #  deploy:
@@ -47,3 +74,10 @@ services:
 #      reservations:
 #        devices:
 #          - capabilities: ["gpu"]
+
+
+volumes:
+  n8n:
+  ollama:
+  qdrant:
+  openwebui:
