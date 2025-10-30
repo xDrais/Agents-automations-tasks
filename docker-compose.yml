@@ -50,23 +50,25 @@ services:
 
 # Rag vector 
 
-  qdrant:
-    image: qdrant/qdrant:latest
-    container_name: qdrant
-    ports: ["6333:6333", "6334:6334"]
-    volumes:
-      - qdrant:/qdrant/storage
+  # qdrant:
+  #   image: qdrant/qdrant:latest
+  #   container_name: qdrant
+  #   ports: ["6333:6333", "6334:6334"]
+  #   volumes:
+  #     - qdrant:/qdrant/storage
         
 # Optional: a ready-made UI with built-in RAG over Ollama
-  openwebui:
-    image: ghcr.io/open-webui/open-webui:main
-    container_name: openwebui
-    ports: ["3000:8080"]
-    environment:
-      - OLLAMA_BASE_URL=http://ollama:11434
-    volumes:
-      - openwebui:/app/backend/data
-    depends_on: [ollama]
+  # openwebui:
+  #   image: ghcr.io/open-webui/open-webui:main
+  #   container_name: openwebui
+  #   ports: ["3000:8080"]
+  #   environment:
+  #     - OLLAMA_BASE_URL=http://ollama:11434
+  #   volumes:
+  #     - openwebui:/app/backend/data
+  #   depends_on: [ollama]
+
+
 
 # Optional: enable GPU pass-through (Docker Engine with NVIDIA)
 #  deploy:
@@ -79,5 +81,5 @@ services:
 volumes:
   n8n:
   ollama:
-  qdrant:
-  openwebui:
+  # qdrant:
+  # openwebui:
