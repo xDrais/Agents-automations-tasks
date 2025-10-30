@@ -1,0 +1,223 @@
+{
+  "name": "RAG - Ingest Folder (/data/kb) to Qdrant",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            { "mode": "everyHour" }
+          ]
+        }
+      },
+      "id": "Cron",
+      "name": "Cron (hourly)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [200, 200]
+    },
+    {
+      "parameters": {
+        "path": "ingest-folder",
+        "methods": ["POST"],
+        "responseMode": "lastNode"
+      },
+      "id": "Webhook_Manual",
+      "name": "Webhook (manual ingest)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 20]
+    },
+    {
+      "parameters": {
+        "filePath": "/data/kb/*.{txt,md}"
+      },
+      "id": "Read_Files",
+      "name": "Read Files (*.txt, *.md)",
+      "type": "n8n-nodes-base.readBinaryFiles",
+      "typeVersion": 1,
+      "position": [420, 120]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "Binary_to_Text",
+      "name": "Binary → Text",
+      "type": "n8n-nodes-base.moveBinaryData",
+      "typeVersion": 1,
+      "position": [620, 120]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Input items each have json.data (text) and json.fileName\n// Chunk ~900 words with ~150 overlap\nfunction chunkWords(text, size=900, overlap=150){\n  const words = String(text||'').split(/\\s+/).filter(Boolean);\n  const out=[]; let i=0; while(i<words.length){ const j=Math.min(words.length,i+size); out.push(words.slice(i,j).join(' ')); if(j===words.length) break; i=Math.max(j-overlap,j);} return out;\n}\n\nconst out=[];\nfor (const it of items){\n  const text = it.json.data;\n  const source = it.json.fileName || 'unknown';\n  const chunks = chunkWords(text);\n  chunks.forEach((c,idx)=> out.push({json:{collection:'kb',source,chunk:c,idx}}));\n}\nreturn out;"
+      },
+      "id": "Chunk",
+      "name": "Chunk",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [820, 120]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { model: 'nomic-embed-text', input: ['probe'] } }];"
+      },
+      "id": "Probe_Req",
+      "name": "Probe Req",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [820, -60]
+    },
+    {
+      "parameters": {
+        "url": "http://ollama:11434/api/embeddings",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{$json}}"
+      },
+      "id": "Probe_Call",
+      "name": "Probe Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1020, -60]
+    },
+    {
+      "parameters": {
+        "functionCode": "const dim = items[0].json?.data?.[0]?.embedding?.length || 0;\nif (!dim) throw new Error('Failed to get embedding dimension');\nreturn [{ json: { dim } }];"
+      },
+      "id": "Get_Dim",
+      "name": "Get Dim",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1220, -60]
+    },
+    {
+      "parameters": {
+        "url": "http://qdrant:6333/collections/kb",
+        "ignoreResponseCode": true
+      },
+      "id": "Check_Collection",
+      "name": "Check Collection",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1420, -60]
+    },
+    {
+      "parameters": {
+        "functionCode": "const exists = ($json?.status === 'ok');\nconst dim = $items('Get Dim')[0].json.dim;\nreturn [{ json: { create: !exists, dim } }];"
+      },
+      "id": "Need_Create",
+      "name": "Need Create?",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1620, -60]
+    },
+    {
+      "parameters": {
+        "url": "http://qdrant:6333/collections/kb",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{ { vectors: { size: $items('Need Create?')[0].json.dim, distance: 'Cosine' } } }}"
+      },
+      "id": "Create_Coll",
+      "name": "Create Coll",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1820, -60],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "functionCode": "const batches=[]; const B=32; for(let i=0;i<items.length;i+=B){ batches.push(items.slice(i,i+B)); }\nreturn batches.flat();"
+      },
+      "id": "Batch32",
+      "name": "Batch32",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1020, 120]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { model: 'nomic-embed-text', input: items.map(i=>i.json.chunk) } }];"
+      },
+      "id": "Build_Emb_Req",
+      "name": "Build Emb Req",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1220, 120]
+    },
+    {
+      "parameters": {
+        "url": "http://ollama:11434/api/embeddings",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{$json}}"
+      },
+      "id": "Call_Emb",
+      "name": "Call Emb",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1420, 120]
+    },
+    {
+      "parameters": {
+        "functionCode": "const emb = items[0].json?.data || [];\nconst base = $items('Batch32');\nreturn base.map((b,i)=>({ json: { ...b.json, embedding: emb[i]?.embedding }}));"
+      },
+      "id": "Attach_Emb",
+      "name": "Attach Emb",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1620, 120]
+    },
+    {
+      "parameters": {
+        "functionCode": "function uuid(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0,v=c==='x'?r:(r&0x3|0x8);return v.toString(16)});} \nconst points = items.filter(it=>Array.isArray(it.json.embedding)).map(it=>({\n  id: uuid(),\n  vector: it.json.embedding,\n  payload: { text: it.json.chunk, source: it.json.source, idx: it.json.idx, ts: Date.now() }\n}));\nreturn [{ json: { points } }];"
+      },
+      "id": "Build_Qdrant",
+      "name": "Build Qdrant",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [1820, 120]
+    },
+    {
+      "parameters": {
+        "url": "http://qdrant:6333/collections/kb/points?wait=true",
+        "jsonParameters": true,
+        "sendBody": true,
+        "bodyParametersJson": "={{$json}}"
+      },
+      "id": "Qdrant_Upsert",
+      "name": "Qdrant Upsert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2020, 120]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { status:'ok', upserted: ($items('Build Qdrant')[0].json.points||[]).length } }];"
+      },
+      "id": "Done",
+      "name": "Done",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [2220, 120]
+    }
+  ],
+  "connections": {
+    "Cron (hourly)": { "main": [[{ "node": "Read Files (*.txt, *.md)", "type": "main", "index": 0 }, { "node": "Probe Req", "type": "main", "index": 0 }]] },
+    "Webhook (manual ingest)": { "main": [[{ "node": "Read Files (*.txt, *.md)", "type": "main", "index": 0 }, { "node": "Probe Req", "type": "main", "index": 0 }]] },
+    "Read Files (*.txt, *.md)": { "main": [[{ "node": "Binary → Text", "type": "main", "index": 0 }]] },
+    "Binary → Text": { "main": [[{ "node": "Chunk", "type": "main", "index": 0 }]] },
+    "Probe Req": { "main": [[{ "node": "Probe Call", "type": "main", "index": 0 }]] },
+    "Probe Call": { "main": [[{ "node": "Get Dim", "type": "main", "index": 0 }]] },
+    "Get Dim": { "main": [[{ "node": "Check Collection", "type": "main", "index": 0 }]] },
+    "Check Collection": { "main": [[{ "node": "Need Create?", "type": "main", "index": 0 }]] },
+    "Need Create?": { "main": [[{ "node": "Create Coll", "type": "main", "index": 0 }]] },
+    "Chunk": { "main": [[{ "node": "Batch32", "type": "main", "index": 0 }]] },
+    "Batch32": { "main": [[{ "node": "Build Emb Req", "type": "main", "index": 0 }]] },
+    "Build Emb Req": { "main": [[{ "node": "Call Emb", "type": "main", "index": 0 }]] },
+    "Call Emb": { "main": [[{ "node": "Attach Emb", "type": "main", "index": 0 }]] },
+    "Attach Emb": { "main": [[{ "node": "Build Qdrant", "type": "main", "index": 0 }]] },
+    "Build Qdrant": { "main": [[{ "node": "Qdrant Upsert", "type": "main", "index": 0 }]] },
+    "Qdrant Upsert": { "main": [[{ "node": "Done", "type": "main", "index": 0 }]] }
+  }
+}
