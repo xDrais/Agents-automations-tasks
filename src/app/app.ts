@@ -1,5 +1,6 @@
 import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import {RouterOutlet, Router} from '@angular/router';
+import * as THREE from 'three';
 
 @Component({
   selector: 'app-root',
@@ -9,4 +10,13 @@ import { RouterOutlet } from '@angular/router';
 })
 export class App {
   protected readonly title = signal('Agents');
+  constructor(private router: Router){
+
+  }
+
+  redirectToFormsButton() {
+    this.router.navigate(['/test']);   
+  } 
 }
+  
+
