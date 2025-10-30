@@ -29,3 +29,9 @@ yarn-error.log*
 
 /ollama
 telerik-license.txt
+/agents project.txt
+/discord bot config.txt
+/git repo.txt
+/llama config.txt
+/n8n config.txt
+/ngrok forwarding config.txt
